@@ -1,0 +1,27 @@
+{
+  "receiver": "aiops-webhook",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "MysqlUnavailable",
+        "instance": "mysql:3306",
+        "job": "smartlife-health-mysql",
+        "service": "smartlife",
+        "severity": "critical"
+      },
+      "annotations": {
+        "summary": "MySQL dependency is unavailable",
+        "description": "SmartLife MySQL health probe failed"
+      },
+      "startsAt": "2026-07-31T10:05:00+08:00",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "mysql-unavailable-test"
+    }
+  ],
+  "groupLabels": {
+    "alertname": "MysqlUnavailable",
+    "service": "smartlife"
+  }
+}

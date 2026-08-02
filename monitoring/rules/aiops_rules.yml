@@ -1,0 +1,47 @@
+groups:
+  - name: aiops.rules
+    rules:
+      - alert: SmartLifeServiceDown
+        expr: up{job="smartlife"} == 0
+        for: 15s
+        labels:
+          severity: critical
+          service: smartlife
+        annotations:
+          summary: "SmartLife Service is down"
+          description: "Prometheus cannot scrape SmartLife Service. instance={{ $labels.instance }}"
+
+      - alert: SmartLifeHighCPUUsage
+        expr: process_cpu_usage{job="smartlife"} > 0.8 or fault_cpu_injection_active{job="smartlife"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: smartlife
+        annotations:
+          summary: "SmartLife Service process CPU usage is high"
+          description: "Process CPU usage is above 80% or the CPU fault injector is active for 2 minutes. instance={{ $labels.instance }}, value={{ $value }}"
+
+      - alert: SmartLifeJvmMemoryHighUsage
+        expr: |
+          (
+            sum by (job, instance) (jvm_memory_used_bytes{area="heap"})
+            /
+            sum by (job, instance) (jvm_memory_max_bytes{area="heap"} > 0)
+          ) > 0.9
+        for: 30s
+        labels:
+          severity: warning
+          service: smartlife
+        annotations:
+          summary: "JVM heap usage is above 90%"
+          description: "JVM Heap usage for {{ $labels.job }} {{ $labels.instance }} is above 90% for 30s, indicating sustained memory growth or OOM risk."
+
+      - alert: SmartLifeMysqlSlowQueryHigh
+        expr: fault_mysql_slow_query_active{job="smartlife"} == 1
+        for: 10s
+        labels:
+          severity: warning
+          service: smartlife
+        annotations:
+          summary: "SmartLife Service MySQL slow query detected"
+          description: "MySQL slow query fault injection is active. instance={{ $labels.instance }}"

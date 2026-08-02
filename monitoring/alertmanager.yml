@@ -1,0 +1,25 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: aiops-webhook
+  group_by:
+    - alertname
+    - job
+  group_wait: 10s
+  group_interval: 30s
+  repeat_interval: 5m
+
+inhibit_rules:
+  - source_matchers:
+      - alertname="SmartLifeServiceDown"
+    target_matchers:
+      - alertname=~"RedisUnavailable|MysqlUnavailable"
+    equal:
+      - service
+
+receivers:
+  - name: aiops-webhook
+    webhook_configs:
+      - url: http://host.docker.internal:9900/api/alerts/webhook
+        send_resolved: true

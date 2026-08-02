@@ -1,0 +1,97 @@
+SmartLifeHighCPUUsage:
+  alert_name: SmartLifeHighCPUUsage
+  category: cpu
+  metrics:
+    - process_cpu_usage
+    - jvm_threads_live_threads
+    - rate(jvm_gc_pause_seconds_count[5m])
+    - rate(http_server_requests_seconds_count[5m])
+  range_query:
+    - process_cpu_usage
+  rag_query: "SmartLifeHighCPUUsage smartlife Java process CPU high JVM GC HTTP Runbook"
+  runbook_allowlist:
+    - "CPU 使用率过高排查.md"
+    - "Java 进程 CPU 过高排查.md"
+  report_policy: cpu
+  missing_evidence: []
+
+SmartLifeJvmMemoryHighUsage:
+  alert_name: SmartLifeJvmMemoryHighUsage
+  category: jvm_memory
+  metrics:
+    - 'sum(jvm_memory_used_bytes{job="smartlife",area="heap"})'
+    - 'sum(jvm_memory_max_bytes{job="smartlife",area="heap"})'
+    - fault_oom_injection_active
+    - fault_oom_retained_bytes
+    - rate(jvm_gc_pause_seconds_count[5m])
+    - rate(jvm_gc_pause_seconds_sum[5m])
+  range_query:
+    - 'sum(jvm_memory_used_bytes{job="smartlife",area="heap"})'
+  rag_query: "SmartLifeJvmMemoryHighUsage JVM OutOfMemory Java heap memory GC OOM Runbook"
+  runbook_allowlist:
+    - "JVM OOM 排查.md"
+    - "Linux 内存不足与 OOM 排查.md"
+    - "JVM Full GC 频繁排查.md"
+  report_policy: jvm_memory
+  missing_evidence: []
+
+SmartLifeMysqlSlowQueryHigh:
+  alert_name: SmartLifeMysqlSlowQueryHigh
+  category: mysql
+  metrics:
+    - fault_mysql_slow_query_active
+    - fault_mysql_slow_query_executions
+    - fault_mysql_slow_query_last_duration_milliseconds
+  range_query:
+    - fault_mysql_slow_query_executions
+    - fault_mysql_slow_query_last_duration_milliseconds
+  rag_query: "SmartLifeMysqlSlowQueryHigh MySQL慢SQL排查 slow query EXPLAIN index full table scan Performance Schema"
+  runbook_allowlist:
+    - "MySQL 慢 SQL 排查.md"
+    - "1.MySQL 慢 SQL 排查.md"
+  report_policy: mysql
+  missing_evidence:
+    - "具体 SQL、慢查询日志和 EXPLAIN 当前未接入工具，必须标记为缺失证据。"
+
+SmartLifeServiceDown:
+  alert_name: SmartLifeServiceDown
+  category: service_availability
+  metrics:
+    - 'up{job="smartlife"}'
+  range_query:
+    - 'up{job="smartlife"}'
+  rag_query: "SmartLifeServiceDown smartlife Java Spring Boot 服务启动失败 服务不可用 Runbook"
+  runbook_allowlist:
+    - "Linux 服务启动失败排查.md"
+    - "Linux 网络连接异常排查.md"
+  report_policy: service_availability
+  missing_evidence:
+    - "Spring Boot health 和服务日志当前未接入工具，必须标记为缺失证据。"
+
+RedisUnavailable:
+  alert_name: RedisUnavailable
+  category: dependency_availability
+  metrics:
+    - 'probe_success{job="smartlife-health-redis"}'
+  range_query:
+    - 'probe_success{job="smartlife-health-redis"}'
+  rag_query: "RedisUnavailable Redis 服务不可用 连接失败 Runbook"
+  runbook_allowlist:
+    - "Redis 服务不可用排查.md"
+  report_policy: service_availability
+  missing_evidence:
+    - "Redis 实例直接健康检查和 Redis 服务日志当前未接入工具，必须标记为缺失证据。"
+
+MysqlUnavailable:
+  alert_name: MysqlUnavailable
+  category: dependency_availability
+  metrics:
+    - 'probe_success{job="smartlife-health-mysql"}'
+  range_query:
+    - 'probe_success{job="smartlife-health-mysql"}'
+  rag_query: "MysqlUnavailable MySQL 服务不可用 连接失败 Runbook"
+  runbook_allowlist:
+    - "MySQL 服务不可用排查.md"
+  report_policy: service_availability
+  missing_evidence:
+    - "MySQL 实例直接连接检查和 MySQL 服务日志当前未接入工具，必须标记为缺失证据。"

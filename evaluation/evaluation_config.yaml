@@ -1,0 +1,166 @@
+# evaluation_config.yaml
+
+evaluation:
+  # 每个故障运行次数
+  repeat: 3
+
+  # 等待告警触发最大时间（秒）
+  alert_timeout: 360
+
+  # 等待恢复最大时间（秒）
+  recovery_timeout: 180
+
+  # AIOps服务地址
+  aiops_base_url: http://127.0.0.1:9900
+
+  # SmartLife服务地址
+  smartlife_base_url: http://127.0.0.1:8081
+
+
+faults:
+
+  # ==========================================
+  # 1. CPU 高负载
+  # ==========================================
+  cpu_high:
+
+    type: http
+
+    start:
+      method: GET
+      url: /test/fault/cpu
+
+    stop:
+      method: GET
+      url: /test/fault/cpu/stop
+
+    alert_name: SmartLifeHighCPUUsage
+
+    expected_keywords:
+      - CPU
+      - cpu
+      - 高占用
+      - 计算
+      - 负载
+
+
+  # ==========================================
+  # 2. JVM OOM
+  # ==========================================
+  jvm_oom:
+
+    type: http
+
+    start:
+      method: GET
+      url: /test/fault/oom
+
+    stop:
+      method: POST
+      url: /test/fault/oom/stop
+
+    alert_name: SmartLifeJvmMemoryHighUsage
+
+    expected_keywords:
+      - JVM
+      - OOM
+      - heap
+      - 内存
+      - 堆
+  # ==========================================
+  # 3. MySQL 慢查询
+  # ==========================================
+  mysql_slow_query:
+
+    type: http
+
+    start:
+      method: GET
+      url: /test/fault/mysql/slow
+
+    stop:
+      method: POST
+      url: /test/fault/mysql/slow/stop
+
+    alert_name: SmartLifeMysqlSlowQueryHigh
+
+    expected_keywords:
+      - MySQL
+      - mysql
+      - 慢查询
+      - SQL
+      - 查询耗时
+
+  # ==========================================
+  # 4. Redis 不可用
+  # ==========================================
+  redis_unavailable:
+
+    type: docker
+
+    container_name: smartlife-redis
+
+    stop:
+      command: docker stop smartlife-redis
+
+    start:
+      command: docker start smartlife-redis
+
+    alert_name: RedisUnavailable
+
+    expected_keywords:
+      - Redis
+      - redis
+      - 不可用
+      - connection
+      - 连接
+
+
+  # ==========================================
+  # 5. MySQL 不可用
+  # ==========================================
+  mysql_unavailable:
+
+    type: docker
+
+    container_name: smartlife-mysql
+
+    stop:
+      command: docker stop smartlife-mysql
+
+    start:
+      command: docker start smartlife-mysql
+
+    alert_name: MysqlUnavailable
+
+    expected_keywords:
+      - MySQL
+      - mysql
+      - 数据库
+      - 不可用
+      - connection
+
+  # ==========================================
+  # 6. SmartLife 服务不可用
+  # ==========================================
+  smartlife_service_down:
+
+    type: docker
+
+    container_name: smartlife-app
+
+    stop:
+      command: docker stop smartlife-app
+
+    start:
+      command: docker start smartlife-app
+
+    alert_name: SmartLifeServiceDown
+
+    expected_keywords:
+      - 服务不可用
+      - service
+      - down
+      - 无法访问
+
+

@@ -1,0 +1,136 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# uv
+.uv/
+
+# Poetry (legacy)
+poetry.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# CodeBuddy
+.codebuddy/
+
+# Environment
+.env
+.env.*
+!.env.example
+!.env.sample
+.env.local
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Logs
+logs/
+*.log
+*.pid
+*.out.log
+*.err.log
+
+# Database
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.rdb
+dump.rdb
+appendonly.aof
+
+# Vector databases / Milvus / Docker volume data
+volumes/
+milvus_data/
+milvus-data/
+data/milvus/
+data/vector_db/
+data/vector-database/
+chroma/
+chroma_db/
+.chroma/
+qdrant_storage/
+weaviate_data/
+docker-data/
+docker_data/
+docker-volumes/
+docker_volumes/
+
+# Uploads
+uploads/
+*.tmp
+*.temp
+*.bak
+*.cache
+.cache/
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Frontend
+node_modules/
+*.tsbuildinfo
+
+# Generated evaluation output (keep evaluation source/configuration)
+evaluation_result*.csv
+evaluation_result*.json
+evaluation/results/
+
+# Local model weights and checkpoints
+models/
+checkpoints/
+*.ckpt
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.bin
+
+# Ruff
+.ruff_cache/

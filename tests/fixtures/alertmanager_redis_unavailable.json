@@ -1,0 +1,27 @@
+{
+  "receiver": "aiops-webhook",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "RedisUnavailable",
+        "instance": "redis:6379",
+        "job": "smartlife-health-redis",
+        "service": "smartlife",
+        "severity": "critical"
+      },
+      "annotations": {
+        "summary": "Redis dependency is unavailable",
+        "description": "SmartLife Redis health probe failed"
+      },
+      "startsAt": "2026-07-31T10:00:00+08:00",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "fingerprint": "redis-unavailable-test"
+    }
+  ],
+  "groupLabels": {
+    "alertname": "RedisUnavailable",
+    "service": "smartlife"
+  }
+}
