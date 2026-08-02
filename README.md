@@ -11,26 +11,7 @@
 平台定位是辅助故障分析：整理监控证据、关联 Runbook、缩短人工排查路径，不执行生产环境自动修复。
 
 ## Architecture
-
-```mermaid
-flowchart TD
-    AM[AlertManager] --> API[FastAPI]
-    API --> AGENT[LangGraph Agent]
-    AGENT --> PLANNER[Planner]
-    PLANNER --> EXECUTOR[Executor]
-    EXECUTOR --> TOOLS[Diagnostic Tools]
-    TOOLS --> PROM_TOOL[Prometheus Query Tools]
-    TOOLS --> RAG_TOOL[RAG Retrieval Tool]
-    PROM_TOOL --> PROM[Prometheus]
-    RAG_TOOL --> MILVUS[(Milvus)]
-    PROM --> REPLANNER[Replanner]
-    MILVUS --> REPLANNER
-    REPLANNER -->|More evidence required| EXECUTOR
-    REPLANNER --> REPORT[Diagnosis Report]
-    API --> REDIS[(Redis Alert State)]
-    REPORT --> MYSQL[(MySQL History)]
-    API --> WEB[Vue Dashboard]
-```
+> ![Architecture.png](Architecture.png)
 
 ## Workflow
 
