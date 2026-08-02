@@ -1,7 +1,6 @@
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from langchain_core.documents import Document
@@ -84,11 +83,9 @@ SmartLifeHighCPUUsage:
                 metadata={"_file_name": "Java 进程 CPU 过高排查.md"},
             )
         ]
-        retriever = SimpleNamespace(invoke=lambda _query: wrong_docs)
-        vector_store = SimpleNamespace(as_retriever=lambda **_kwargs: retriever)
         with patch(
-            "app.tools.knowledge_tool.vector_store_manager.get_vector_store",
-            return_value=vector_store,
+            "app.tools.knowledge_tool.vector_store_manager.search_documents",
+            return_value=wrong_docs,
         ):
             content, docs = retrieve_knowledge.func(
                 "RedisUnavailable Redis 服务不可用 连接失败 Runbook"

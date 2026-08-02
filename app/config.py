@@ -85,13 +85,18 @@ class Settings(BaseSettings):
     aiops_mysql_database: str = "aiops"
     aiops_storage_fallback: bool = True
 
+    # AIOps planner generation
+    aiops_planner_timeout: float = 60.0
+    aiops_planner_max_attempts: int = 2
+    aiops_planner_max_tokens: int = 2000
+
     # AIOps report generation
     aiops_report_timeout: float = 120.0
     aiops_report_primary_model: str = "gpt-5.6-sol"
     aiops_report_secondary_model: str = "qwen3.7-max"
     aiops_report_max_attempts: int = 3
     aiops_report_max_chars: int = 2000
-    aiops_report_max_tokens: int = 2200
+    aiops_report_max_tokens: int = 3200
 
     @property
     def mcp_servers(self) -> Dict[str, Dict[str, Any]]:

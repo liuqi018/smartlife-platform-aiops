@@ -20,6 +20,7 @@ from app.agent.aiops.planner import (
     planner_prompt,
 )
 from app.agent.aiops.replanner import _format_trend_analysis
+from app.config import config
 from app.tools.query_metrics_alerts import _infer_metric_info
 
 
@@ -285,15 +286,19 @@ class PrometheusRangeFallbackTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_planner_incomplete_structured_json_continues_with_alert_plan(self):
         class IncompletePlannerLLM:
+            structured_calls = 0
+
             def with_structured_output(self, _schema, *, include_raw=False):
                 self.include_raw = include_raw
-                return RunnableLambda(
-                    lambda _prompt: {
+                def incomplete_response(_prompt):
+                    self.structured_calls += 1
+                    return {
                         "raw": SimpleNamespace(content='{"'),
                         "parsed": None,
                         "parsing_error": ValueError("EOF while parsing a string"),
                     }
-                )
+
+                return RunnableLambda(incomplete_response)
 
         fake_llm = IncompletePlannerLLM()
         with patch(
@@ -309,8 +314,18 @@ class PrometheusRangeFallbackTest(unittest.IsolatedAsyncioTestCase):
             result = await planner({"input": "- alertname: SmartLifeServiceDown"})
 
         self.assertTrue(fake_llm.include_raw)
+        self.assertEqual(fake_llm.structured_calls, config.aiops_planner_max_attempts)
         create_model.assert_called_once()
-        self.assertEqual(create_model.call_args.kwargs["max_tokens"], 1200)
+        self.assertEqual(
+            create_model.call_args.kwargs["max_tokens"],
+            config.aiops_planner_max_tokens,
+        )
+        self.assertEqual(
+            create_model.call_args.kwargs["timeout"],
+            config.aiops_planner_timeout,
+        )
+        self.assertEqual(create_model.call_args.kwargs["max_retries"], 1)
+        self.assertFalse(create_model.call_args.kwargs["streaming"])
         text = "\n".join(result["plan"])
         self.assertIn('up{job="smartlife"}', text)
         self.assertIn("query_prometheus_range", text)

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from langchain_core.runnables import RunnableLambda
@@ -14,6 +15,7 @@ from app.agent.aiops.replanner import (
     _format_rag_evidence,
     _format_jvm_thread_dump_evidence,
     _generate_response,
+    _llm_response_text,
 )
 from app.config import config
 
@@ -413,6 +415,16 @@ def _report_state() -> dict:
 
 
 class ReportFallbackTest(unittest.IsolatedAsyncioTestCase):
+    def test_llm_response_text_supports_content_blocks(self):
+        response = SimpleNamespace(
+            content=[
+                {"type": "text", "text": "# 故障诊断报告"},
+                {"type": "text", "text": "\n报告内容。"},
+            ]
+        )
+
+        self.assertEqual(_llm_response_text(response), "# 故障诊断报告\n报告内容。")
+
     async def test_jvm_thread_dump_evidence_enters_report_prompt(self):
         captured_prompt = ""
 

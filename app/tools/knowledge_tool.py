@@ -1,5 +1,7 @@
 """知识检索工具 - 从向量数据库中检索相关信息"""
 
+import json
+
 from typing import List, Tuple
 
 from langchain_core.documents import Document
@@ -8,7 +10,7 @@ from loguru import logger
 
 from app.config import config
 from app.core.fault_mapping_loader import match_fault_mapping
-from app.services.vector_store_manager import vector_store_manager
+from app.services.vector_store_manager import MilvusSearchUnavailable, vector_store_manager
 
 
 MYSQL_SLOW_QUERY_FILES = {"MySQL 慢 SQL 排查.md", "1.MySQL 慢 SQL 排查.md"}
@@ -89,7 +91,6 @@ def retrieve_knowledge(query: str) -> Tuple[str, List[Document]]:
         logger.info(f"知识检索工具被调用: query='{query}'")
         
         # 从向量存储中检索相关文档
-        vector_store = vector_store_manager.get_vector_store()
         mysql_slow_query = _is_mysql_slow_query_request(query)
         mapping = match_fault_mapping(query)
         allowlist = list((mapping or {}).get("runbook_allowlist") or [])
@@ -103,9 +104,10 @@ def retrieve_knowledge(query: str) -> Tuple[str, List[Document]]:
             escaped = [name.replace('"', '\\"') for name in allowlist]
             values = ", ".join(f'"{name}"' for name in escaped)
             search_kwargs["expr"] = f'metadata["_file_name"] in [{values}]'
-        retriever = vector_store.as_retriever(search_kwargs=search_kwargs)
-        
-        docs = retriever.invoke(query)
+        docs = vector_store_manager.search_documents(
+            query,
+            search_kwargs=search_kwargs,
+        )
         if mysql_slow_query:
             docs = _filter_mysql_slow_query_docs(docs)[: config.rag_top_k]
             logger.info(
@@ -146,6 +148,14 @@ def retrieve_knowledge(query: str) -> Tuple[str, List[Document]]:
         logger.info(f"检索到 {len(docs)} 个相关文档")
         return context, docs
         
+    except MilvusSearchUnavailable:
+        error_result = {
+            "success": False,
+            "tool": "rag_search",
+            "error": "Milvus collection unavailable",
+        }
+        logger.error("知识检索工具降级: {}", error_result)
+        return json.dumps(error_result, ensure_ascii=False), []
     except Exception as e:
         logger.error(f"知识检索工具调用失败: {e}")
         return f"检索知识时发生错误: {str(e)}", []

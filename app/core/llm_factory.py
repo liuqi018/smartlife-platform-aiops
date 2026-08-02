@@ -20,6 +20,8 @@ class LLMFactory:
         base_url: str | None = None,
         api_key: str | None = None,
         max_tokens: int | None = None,
+        timeout: float | None = None,
+        max_retries: int | None = None,
     ) -> ChatOpenAI:
         """Create a LangChain ChatOpenAI model using project configuration."""
         selected_model = model or config.autodl_model
@@ -36,6 +38,8 @@ class LLMFactory:
             base_url=selected_base_url,
             api_key=selected_api_key,
             max_tokens=max_tokens,
+            timeout=timeout,
+            max_retries=max_retries,
         )
 
         logger.info("LLM 初始化完成: model={}, base_url={}", selected_model, selected_base_url)

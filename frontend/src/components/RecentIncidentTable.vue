@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { formatAlertDuration } from '../utils/duration'
 const props=defineProps<{ alerts:any[] }>()
 const router=useRouter()
-const duration=(row:any)=>{
- const start=new Date(row.startsAt).getTime(), end=row.endsAt?new Date(row.endsAt).getTime():Date.now()
- const mins=Math.max(1,Math.round((end-start)/60000))
- return mins>59?`${Math.floor(mins/60)}h ${mins%60}m`:`${mins}m`
-}
+const duration=(row:any)=>formatAlertDuration(row.startsAt,row.endsAt)
 const rootCause=(row:any)=>{
  const text=`${row.alertname} ${row.service}`.toLowerCase()
  if(text.includes('cpu'))return 'High process CPU utilization'

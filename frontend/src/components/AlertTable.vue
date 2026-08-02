@@ -2,14 +2,11 @@
 import dayjs from 'dayjs'
 import { useRouter } from 'vue-router'
 import StatusPill from './StatusPill.vue'
+import { formatAlertDuration } from '../utils/duration'
 defineProps<{ alerts:any[]; compact?:boolean }>()
 const router = useRouter()
 const fmt = (v:string) => v ? dayjs(v).format('MM-DD HH:mm:ss') : '—'
-const duration = (row:any) => {
-  const start=dayjs(row.startsAt), end=row.endsAt?dayjs(row.endsAt):dayjs()
-  const minutes=Math.max(0,end.diff(start,'minute'))
-  return minutes>59?`${Math.floor(minutes/60)}h ${minutes%60}m`:`${minutes}m`
-}
+const duration = (row:any) => formatAlertDuration(row.startsAt, row.endsAt)
 const openAlert = (row: any) => router.push(`/alerts/${row.id}`)
 </script>
 <template><div class="table-wrap"><el-table :data="alerts" @row-click="openAlert">

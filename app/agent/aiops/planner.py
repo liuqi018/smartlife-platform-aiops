@@ -21,9 +21,6 @@ from .utils import format_tools_description
 
 logger = logger.bind(stage="planner")
 
-PLANNER_MAX_TOKENS = 1200
-
-
 SUPPORTED_PLAN_STEPS = [
     "确认告警上下文：整理告警名称、级别、服务、实例、开始时间和主症状；本步骤不需要工具。",
     '使用 query_prometheus_metrics 工具查询服务可用性。参数：promql="up"。',
@@ -517,7 +514,10 @@ async def planner(state: PlanExecuteState) -> Dict[str, Any]:
         llm = llm_factory.create_chat_model(
             model=model_name,
             temperature=0,
-            max_tokens=PLANNER_MAX_TOKENS,
+            streaming=False,
+            max_tokens=config.aiops_planner_max_tokens,
+            timeout=config.aiops_planner_timeout,
+            max_retries=1,
         )
 
         planner_input = {
@@ -528,39 +528,50 @@ async def planner(state: PlanExecuteState) -> Dict[str, Any]:
 
         plan_result: Plan | dict[str, Any] | None = None
         raw_text = ""
-        try:
-            structured_chain = planner_prompt | llm.with_structured_output(
-                Plan, include_raw=True
-            )
-            plan_envelope = await structured_chain.ainvoke(planner_input)
-            raw_response = (
-                plan_envelope.get("raw")
-                if isinstance(plan_envelope, dict)
-                else plan_envelope
-            )
-            raw_text = _log_planner_raw_response(
-                str(model_name), "structured", raw_response
-            )
-            if isinstance(plan_envelope, dict):
-                plan_result = plan_envelope.get("parsed")
-                parsing_error = plan_envelope.get("parsing_error")
-                if parsing_error:
-                    logger.error(
-                        "Planner structured output parsing failed model_name={}; attempting content JSON recovery:\n{}",
-                        model_name,
-                        format_exception_chain(parsing_error),
-                    )
-            elif isinstance(plan_envelope, (Plan, dict)):
-                plan_result = plan_envelope
-        except Exception as exc:
-            logger.error(
-                "Planner structured output invocation failed model_name={}; retrying with raw content mode:\n{}",
-                model_name,
-                format_exception_chain(exc),
-                exc_info=True,
-            )
+        structured_chain = planner_prompt | llm.with_structured_output(
+            Plan, include_raw=True
+        )
+        for attempt in range(1, max(1, config.aiops_planner_max_attempts) + 1):
+            try:
+                plan_envelope = await structured_chain.ainvoke(planner_input)
+                raw_response = (
+                    plan_envelope.get("raw")
+                    if isinstance(plan_envelope, dict)
+                    else plan_envelope
+                )
+                raw_text = _log_planner_raw_response(
+                    str(model_name), f"structured_{attempt}", raw_response
+                )
+                if isinstance(plan_envelope, dict):
+                    plan_result = plan_envelope.get("parsed")
+                    parsing_error = plan_envelope.get("parsing_error")
+                    if parsing_error:
+                        logger.warning(
+                            "Planner structured output parsing failed model_name={} attempt={}/{}; retrying before raw mode:\n{}",
+                            model_name,
+                            attempt,
+                            config.aiops_planner_max_attempts,
+                            format_exception_chain(parsing_error),
+                        )
+                elif isinstance(plan_envelope, (Plan, dict)):
+                    plan_result = plan_envelope
+                if plan_result is not None:
+                    break
+                if raw_text:
+                    plan_result = _extract_plan_json(raw_text)
+                    if plan_result is not None:
+                        logger.warning("Planner recovered Plan from structured raw content")
+                        break
+            except Exception as exc:
+                logger.warning(
+                    "Planner structured output invocation failed model_name={} attempt={}/{}:\n{}",
+                    model_name,
+                    attempt,
+                    config.aiops_planner_max_attempts,
+                    format_exception_chain(exc),
+                )
 
-        # Layer 2/3: recover JSON from structured raw content first.
+        # Recover JSON from the final structured raw content before raw mode.
         if plan_result is None and raw_text:
             plan_result = _extract_plan_json(raw_text)
             if plan_result is not None:

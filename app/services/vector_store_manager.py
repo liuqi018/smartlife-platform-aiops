@@ -5,6 +5,7 @@ from typing import List
 from langchain_core.documents import Document
 from langchain_milvus import Milvus
 from loguru import logger
+from pymilvus import MilvusException
 
 from app.config import config
 from app.core.milvus_client import milvus_manager
@@ -15,10 +16,15 @@ from app.services.vector_embedding_service import vector_embedding_service
 COLLECTION_NAME = "biz"
 
 
+class MilvusSearchUnavailable(RuntimeError):
+    """Raised after a Milvus search cannot recover within its retry budget."""
+
+
 class VectorStoreManager:
     """向量存储管理器"""
 
     EMBEDDING_BATCH_SIZE = 10
+    SEARCH_MAX_ATTEMPTS = 2
 
     def __init__(self):
         """初始化向量存储管理器"""
@@ -148,13 +154,55 @@ class VectorStoreManager:
         Returns:
             List[Document]: 相关文档列表
         """
-        try:
-            docs = self.vector_store.similarity_search(query, k=k)
-            logger.debug(f"相似度搜索完成: query='{query}', 结果数={len(docs)}")
-            return docs
-        except Exception as e:
-            logger.error(f"相似度搜索失败: {e}")
-            return []
+        return self.search_documents(query, search_kwargs={"k": k})
+
+    @staticmethod
+    def _is_collection_not_loaded(error: BaseException) -> bool:
+        message = str(error).lower()
+        return "collection not loaded" in message or "collection is not loaded" in message
+
+    def search_documents(
+        self,
+        query: str,
+        *,
+        search_kwargs: dict | None = None,
+    ) -> List[Document]:
+        """Search Milvus with a load check and one recovery retry."""
+        kwargs = dict(search_kwargs or {})
+        last_error: MilvusException | None = None
+
+        for attempt in range(1, self.SEARCH_MAX_ATTEMPTS + 1):
+            try:
+                milvus_manager.ensure_collection_loaded()
+                docs = self.vector_store.similarity_search(query, **kwargs)
+                logger.debug("相似度搜索完成: query='{}', 结果数={}", query, len(docs))
+                return docs
+            except MilvusException as error:
+                last_error = error
+                if (
+                    attempt < self.SEARCH_MAX_ATTEMPTS
+                    and self._is_collection_not_loaded(error)
+                ):
+                    logger.warning("[MILVUS] collection not loaded, attempting reload")
+                    try:
+                        milvus_manager.ensure_collection_loaded(force=True)
+                    except MilvusException as load_error:
+                        last_error = load_error
+                        logger.warning(
+                            "[MILVUS] collection reload failed: {}",
+                            load_error,
+                        )
+                    logger.warning("[MILVUS] retry search attempt={}", attempt + 1)
+                    continue
+                break
+
+        logger.error(
+            "[MILVUS] search failed after retries: attempts={}, query={}, error={}",
+            self.SEARCH_MAX_ATTEMPTS,
+            query,
+            last_error,
+        )
+        raise MilvusSearchUnavailable("Milvus collection unavailable") from last_error
 
 
 # 全局单例

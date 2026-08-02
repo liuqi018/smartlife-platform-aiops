@@ -2235,6 +2235,30 @@ def _format_jvm_thread_dump_evidence(past_steps: list[tuple]) -> str:
     return "\n\n".join(thread_sections)
 
 
+def _llm_response_text(response: Any) -> str:
+    """Extract text from string and block-based LangChain/provider responses."""
+    if response is None:
+        return ""
+    output_text = getattr(response, "text", None)
+    if isinstance(output_text, str) and output_text.strip():
+        return output_text.strip()
+    content = getattr(response, "content", response)
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+                continue
+            if isinstance(block, dict):
+                value = block.get("text") or block.get("content") or block.get("output_text")
+                if isinstance(value, str):
+                    parts.append(value)
+        return "\n".join(part.strip() for part in parts if part.strip()).strip()
+    return str(content).strip() if content is not None else ""
+
+
 async def _generate_response(state: PlanExecuteState, llm: Any | None = None) -> Dict[str, Any]:
     """Generate the final Markdown diagnosis report."""
     report_start = time.perf_counter()
@@ -2425,7 +2449,10 @@ async def _generate_response(state: PlanExecuteState, llm: Any | None = None) ->
                 lambda: llm_factory.create_chat_model(
                     model=config.aiops_report_primary_model,
                     temperature=0,
+                    streaming=False,
                     max_tokens=config.aiops_report_max_tokens,
+                    timeout=config.aiops_report_timeout,
+                    max_retries=1,
                 ),
             ),
             (
@@ -2435,7 +2462,10 @@ async def _generate_response(state: PlanExecuteState, llm: Any | None = None) ->
                     temperature=0,
                     base_url=llm_factory.DASHSCOPE_BASE_URL,
                     api_key=config.dashscope_api_key,
+                    streaming=False,
                     max_tokens=config.aiops_report_max_tokens,
+                    timeout=config.aiops_report_timeout,
+                    max_retries=1,
                 ),
             ),
         ]
@@ -2468,8 +2498,7 @@ async def _generate_response(state: PlanExecuteState, llm: Any | None = None) ->
                 )
 
                 response_end = time.perf_counter()
-                final_response = response_obj.content if hasattr(response_obj, "content") else str(response_obj)
-                final_response = final_response.strip()
+                final_response = _llm_response_text(response_obj)
                 if not final_response:
                     raise ValueError("Report LLM returned an empty response")
                 final_response = _ensure_jvm_oom_sections(
@@ -2503,11 +2532,7 @@ async def _generate_response(state: PlanExecuteState, llm: Any | None = None) ->
                         response_chain.ainvoke({"messages": compression_messages}),
                         timeout=config.aiops_report_timeout,
                     )
-                    compressed = (
-                        compressed_obj.content
-                        if hasattr(compressed_obj, "content")
-                        else str(compressed_obj)
-                    ).strip()
+                    compressed = _llm_response_text(compressed_obj)
                     compressed = _ensure_fixed_evidence_limitations(compressed, input_text)
                     if (
                         compressed

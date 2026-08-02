@@ -1,5 +1,7 @@
 """Milvus 客户端工厂模块"""
 
+import threading
+
 from loguru import logger
 from pymilvus import (
     Collection,
@@ -55,6 +57,7 @@ class MilvusClientManager:
         """初始化 Milvus 客户端管理器"""
         self._client: MilvusClient | None = None
         self._collection: Collection | None = None
+        self._load_lock = threading.RLock()
 
     def connect(self) -> MilvusClient:
         """
@@ -209,34 +212,39 @@ class MilvusClientManager:
 
     def _load_collection(self) -> None:
         """加载 collection 到内存"""
-        if self._collection is None:
-            self._collection = Collection(self.COLLECTION_NAME)
+        self.ensure_collection_loaded()
 
-        # 检查 collection 是否已加载（兼容多版本）
-        try:
-            # 方法 1: 尝试使用 utility.load_state（新版本）
-            load_state = utility.load_state(self.COLLECTION_NAME)
-            # load_state 返回字符串或枚举，如 "Loaded" 或 "NotLoad"
-            state_name = getattr(load_state, "name", str(load_state))
-            if state_name != "Loaded":
-                self._collection.load()
-                logger.info(f"成功加载 collection '{self.COLLECTION_NAME}'")
-            else:
-                logger.info(f"Collection '{self.COLLECTION_NAME}' 已加载")
-        except AttributeError:
-            # 方法 2: 直接尝试加载，捕获 "already loaded" 异常
-            try:
-                self._collection.load()
-                logger.info(f"成功加载 collection '{self.COLLECTION_NAME}'")
-            except MilvusException as e:
-                error_msg = str(e).lower()
-                if "already loaded" in error_msg or "loaded" in error_msg:
-                    logger.info(f"Collection '{self.COLLECTION_NAME}' 已加载")
-                else:
-                    raise
-        except Exception as e:
-            logger.error(f"加载 collection 失败: {e}")
-            raise
+    def is_collection_loaded(self) -> bool:
+        """Return whether Milvus reports the collection as fully loaded."""
+        load_state = utility.load_state(
+            self.COLLECTION_NAME,
+            timeout=max(config.milvus_timeout / 1000, 30.0),
+        )
+        state_name = str(getattr(load_state, "name", load_state)).lower()
+        return state_name == "loaded" or state_name.endswith(": loaded")
+
+    def ensure_collection_loaded(self, *, force: bool = False) -> Collection:
+        """Load the collection when necessary and wait until it is searchable."""
+        with self._load_lock:
+            if self._collection is None:
+                self._collection = Collection(self.COLLECTION_NAME)
+
+            if not force and self.is_collection_loaded():
+                return self._collection
+
+            logger.warning("[MILVUS] collection not loaded, attempting reload")
+            load_timeout = max(config.milvus_timeout / 1000, 30.0)
+            self._collection.load(timeout=load_timeout)
+            utility.wait_for_loading_complete(
+                self.COLLECTION_NAME,
+                timeout=load_timeout,
+            )
+            if not self.is_collection_loaded():
+                raise MilvusException(
+                    message=f"collection {self.COLLECTION_NAME} did not reach Loaded state"
+                )
+            logger.info("[MILVUS] collection load success")
+            return self._collection
 
     def get_collection(self) -> Collection:
         """
