@@ -59,13 +59,16 @@ class AlertHistoryServiceTest(unittest.TestCase):
         cursor.__enter__.return_value = cursor
         service._connect = MagicMock(return_value=_Connection(cursor))
 
-        service.save_diagnosis_report(7, "alert-session-123", [("step", "evidence")], "报告")
+        persisted = service.save_diagnosis_report(
+            7, "alert-session-123", [("step", "evidence")], "报告"
+        )
 
         sql, values = cursor.execute.call_args.args
         self.assertIn("session_id", sql)
         self.assertEqual(values[0], 7)
         self.assertEqual(values[1], "alert-session-123")
         self.assertEqual(values[5], "报告")
+        self.assertTrue(persisted)
 
     def test_restore_active_event_reopens_existing_lifecycle(self):
         service = AlertHistoryService()

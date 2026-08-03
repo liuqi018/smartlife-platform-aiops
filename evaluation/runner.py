@@ -152,13 +152,24 @@ class EvaluationRunner:
         names = [*FAULT_ALERT_NAMES.get(key, ()), str(fault.get("alert_name") or "")]
         return tuple(dict.fromkeys(name for name in names if name))
 
-    def _latest_firing(self, alert_names: tuple[str, ...], after_id: int) -> dict[str, Any] | None:
+    def _latest_alert_lifecycle(
+        self, alert_names: tuple[str, ...], after_id: int
+    ) -> dict[str, Any] | None:
+        """Return a target lifecycle created after fault injection.
+
+        ``alert_event`` stores one mutable row per lifecycle: the firing webhook
+        inserts the row and the resolved webhook later updates that same row.
+        A short-lived fault may therefore already be ``resolved`` before the
+        runner's first poll.  ``id > after_id`` proves that the lifecycle was
+        created after this trial's baseline, so filtering on its current status
+        would incorrectly discard a valid firing event.
+        """
         placeholders = ", ".join(["%s"] * len(alert_names))
         with self._connect() as connection, connection.cursor() as cursor:
             cursor.execute(
                 f"""SELECT id, fingerprint, alert_name, status, start_time, created_time
                    FROM alert_event
-                   WHERE alert_name IN ({placeholders}) AND status='firing' AND id>%s
+                   WHERE alert_name IN ({placeholders}) AND id>%s
                    ORDER BY id DESC LIMIT 1""",
                 (*alert_names, after_id),
             )
@@ -226,7 +237,7 @@ class EvaluationRunner:
             event = self._wait(
                 f"{'/'.join(alert_names)} firing",
                 float(self.options["alert_timeout"]),
-                lambda: self._latest_firing(alert_names, baseline),
+                lambda: self._latest_alert_lifecycle(alert_names, baseline),
             )
             trial.alert_name = str(event["alert_name"])
             print(f"[Alert]\n{trial.alert_name} firing detected", flush=True)

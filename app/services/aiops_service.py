@@ -11,7 +11,6 @@ from loguru import logger
 from app.agent.aiops import PlanExecuteState, planner, executor, replanner
 from app.models.alert import AlertContext
 from app.services.alert_history_service import alert_history_service
-from app.services.alert_state_manager import alert_state_manager
 
 
 # 节点名称常量
@@ -223,6 +222,7 @@ class AIOpsService:
         self,
         alert_context: AlertContext,
         session_id: str = "default",
+        alert_id: int | None = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """Run the existing Plan-Execute-Replan flow from an alert context."""
         logger.info(
@@ -253,11 +253,15 @@ class AIOpsService:
                 report = event.get("response", "")
                 evidence = (event.get("state") or {}).get("past_steps", [])
                 try:
-                    lifecycle = alert_state_manager.get_alert_state(alert_context.fingerprint) or {}
-                    alert_history_service.save_diagnosis_report(
-                        lifecycle.get("alert_id"), session_id, evidence, report
+                    report_persisted = alert_history_service.save_diagnosis_report(
+                        alert_id,
+                        session_id,
+                        evidence,
+                        report,
+                        fingerprint=alert_context.fingerprint,
                     )
                 except Exception as history_error:
+                    report_persisted = False
                     logger.warning("Failed to save diagnosis history: {}", history_error)
                 yield {
                     "type": "complete",
@@ -267,6 +271,7 @@ class AIOpsService:
                         "status": "completed",
                         "alert": alert_context.model_dump(),
                         "report": report,
+                        "report_persisted": report_persisted,
                     },
                 }
             else:

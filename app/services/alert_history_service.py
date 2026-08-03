@@ -257,9 +257,24 @@ class AlertHistoryService:
         session_id: str,
         evidence: Any,
         report: str,
-    ) -> None:
-        if not self.available or alert_id is None:
-            return
+        *,
+        fingerprint: str = "",
+    ) -> bool:
+        if alert_id is None:
+            logger.error(
+                "Diagnosis report persistence skipped: missing alert_id, session_id={}, fingerprint={}",
+                session_id,
+                fingerprint or "-",
+            )
+            return False
+        if not self.available:
+            logger.error(
+                "Diagnosis report persistence skipped: history service unavailable, alert_id={}, session_id={}, fingerprint={}",
+                alert_id,
+                session_id,
+                fingerprint or "-",
+            )
+            return False
         with self._connect(config.aiops_mysql_database) as conn, conn.cursor() as cursor:
             cursor.execute(
                 """INSERT INTO diagnosis_report
@@ -268,6 +283,7 @@ class AlertHistoryService:
                 (alert_id, session_id, json.dumps(evidence, ensure_ascii=False, default=str), report[:1000], report[-1000:], report,
                  now_shanghai().replace(tzinfo=None)),
             )
+        return True
 
     def resolve_alert_event(
         self,

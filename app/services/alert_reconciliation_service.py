@@ -230,7 +230,7 @@ class AlertReconciliationService:
                 alert_id,
             )
             task = asyncio.create_task(
-                self._diagnose_recovered(alert, session_id),
+                self._diagnose_recovered(alert, session_id, alert_id),
                 name=f"recovered-alert-diagnosis:{alert.fingerprint}",
             )
             self._diagnosis_tasks.add(task)
@@ -268,7 +268,9 @@ class AlertReconciliationService:
             "recovered_from_alertmanager": True,
         }
 
-    async def _diagnose_recovered(self, alert: AlertContext, session_id: str) -> None:
+    async def _diagnose_recovered(
+        self, alert: AlertContext, session_id: str, alert_id: int | None = None
+    ) -> None:
         try:
             if self.recovered_diagnosis is not None:
                 await self.recovered_diagnosis(alert, session_id)
@@ -278,7 +280,9 @@ class AlertReconciliationService:
                 from app.services.aiops_service import aiops_service
 
                 completed = False
-                async for event in aiops_service.diagnose_alert(alert, session_id):
+                async for event in aiops_service.diagnose_alert(
+                    alert, session_id, alert_id
+                ):
                     if event.get("type") == "complete":
                         completed = True
                 # Consume the async generator to natural completion in this

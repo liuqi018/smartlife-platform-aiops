@@ -289,6 +289,7 @@ async def _diagnose_alerts_stream(request: Request) -> EventSourceResponse | JSO
                 async for event in aiops_service.diagnose_alert(
                     alert_context=alert_context,
                     session_id=session_id,
+                    alert_id=alert_id,
                 ):
                     if event.get("type") == "complete":
                         updated, _state = alert_state_manager.update_current_status(

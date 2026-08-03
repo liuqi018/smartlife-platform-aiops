@@ -97,6 +97,36 @@ class EvaluationSummaryTest(unittest.TestCase):
         self.assertEqual(values, (48,))
         self.assertEqual(report["alert_id"], 48)
 
+    def test_alert_lifecycle_match_does_not_require_current_firing_status(self):
+        runner = self.runner()
+        connection = Mock()
+        cursor = Mock()
+        connection.__enter__ = Mock(return_value=connection)
+        connection.__exit__ = Mock(return_value=False)
+        cursor_context = Mock()
+        cursor_context.__enter__ = Mock(return_value=cursor)
+        cursor_context.__exit__ = Mock(return_value=False)
+        connection.cursor.return_value = cursor_context
+        cursor.fetchone.return_value = {
+            "id": 81,
+            "fingerprint": "jvm-fingerprint",
+            "alert_name": "SmartLifeJvmMemoryHighUsage",
+            "status": "resolved",
+            "start_time": "2026-08-03 18:08:04",
+        }
+        runner._connect = Mock(return_value=connection)
+
+        lifecycle = runner._latest_alert_lifecycle(
+            ("SmartLifeJvmMemoryHighUsage",), after_id=80
+        )
+
+        sql, values = cursor.execute.call_args.args
+        self.assertNotIn("status='firing'", sql)
+        self.assertIn("id>%s", sql)
+        self.assertEqual(values, ("SmartLifeJvmMemoryHighUsage", 80))
+        self.assertEqual(lifecycle["id"], 81)
+        self.assertEqual(lifecycle["status"], "resolved")
+
 
 if __name__ == "__main__":
     unittest.main()
